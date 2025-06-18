@@ -1,31 +1,7 @@
-//`timescale 1ns/100ps
-
-module memory
-#(
-  parameter integer AWIDTH = 5,
-  parameter integer DWIDTH = 8
-)
-(
-  input  wire              clk,
-  input  wire              wr,
-  input  wire              rd,
-  input  wire [AWIDTH-1:0] addr,
-  inout  wire [DWIDTH-1:0] data
-);
-  reg [DWIDTH-1:0] array [0:2**AWIDTH-1];
-
-  always @(posedge clk)
-    if (wr)
-      array[addr] = data;
-
-  assign data = rd ? array[addr] : 'bz;
-endmodule
-
-
 module memory_test;
 
-  localparam integer AWIDTH = 5;
-  localparam integer DWIDTH = 8;
+  localparam integer AWIDTH=5;
+  localparam integer DWIDTH=8;
 
   reg               clk;
   reg               wr;
@@ -34,93 +10,92 @@ module memory_test;
   wire [DWIDTH-1:0] data;
   reg  [DWIDTH-1:0] rdata;
 
-  assign data = rdata;
+  assign data=rdata;
 
   memory #(
-    .AWIDTH(AWIDTH),
-    .DWIDTH(DWIDTH)
-  ) memory_inst (
-    .clk(clk),
-    .wr(wr),
-    .rd(rd),
-    .addr(addr),
-    .data(data)
-  );
+    .AWIDTH ( AWIDTH ),
+    .DWIDTH ( DWIDTH ) 
+   )  memory_inst (
+    .clk  ( clk  ),
+    .wr   ( wr   ),
+    .rd   ( rd   ),
+    .addr ( addr ),
+    .data ( data ) 
+   );
 
   task check_output;
     input [DWIDTH-1:0] exp_data;
     if (data !== exp_data) begin
       $display("TEST FAILED");
-      $display("At time %0t addr=%b data=%b", $time, addr, data);
-      $display("Expected data = %b", exp_data);
+      $display("At time %0d addr=%b data=%b", $time, addr, data);
+      $display("data should be %b", exp_data);
       $finish;
-    end else begin
-      $timeformat(-9, 0, "ns", 4);
-      $display("%t addr=%b, exp_data=%b, data=%b", $time, addr, exp_data, data);
-    end
+    end  else begin
+      $timeformat(-9, 0,"ns", 4);
+      $display("%t addr=%b, exp_data= %b, data=%b", $time, addr, exp_data, data);
+   end
   endtask
 
-  // WRITE task
-  task write;
-    input [AWIDTH-1:0] waddr;
-    input [DWIDTH-1:0] wdata;
-    begin
-      @(negedge clk);
-      addr  = waddr;
-      rdata = wdata;
-      wr    = 1;
-      rd    = 0;
-      @(negedge clk);
-      wr    = 0;
-      rdata = 'bz;
+////////////////////////////////////////////
+//TO-DO: CODE THE WRITE TASK AS INSTRUCTED//
+////////////////////////////////////////////
+
+task write;
+input [AWIDTH-1:0] addr_in;
+input [DWIDTH-1:0] data_in;
+begin
+    @(negedge clk);
+    addr = addr_in;
+    rdata = data_in;
+    wr = 1;
+    rd = 0;
+
+    @(negedge clk);
+    wr = 0;
+    rdata = {DWIDTH{1'bz}};
+end
+endtask
+    
+
+
+////////////////////////////////////////////
+//TO-DO: CODE THE READ TASK AS INSTRUCTED///
+////////////////////////////////////////////
+
+task read;
+input [AWIDTH-1:0] raddr;
+input [DWIDTH-1:0] data_out;
+begin
+    @(negedge clk);
+    rd = 1;
+    wr = 0;
+    addr = raddr;
+    
+    @(negedge clk);
+    rd = 1;
+    check_output(data_out);
+end
+endtask
+
+  
+  initial repeat (300) begin #5 clk=1; #5 clk=0; end
+
+  initial @(negedge clk) begin : TEST
+    reg [AWIDTH-1:0] addr;
+    reg [DWIDTH-1:0] data;
+       
+    addr=-1; data=0;
+    while ( addr ) begin
+      write(addr,data);
+      addr=addr-1;
+      data=data+1;
     end
-  endtask
-
-  // READ task
-  task read;
-    input [AWIDTH-1:0] raddr;
-    input [DWIDTH-1:0] exp_data;
-    begin
-      @(negedge clk);
-      addr = raddr;
-      wr   = 0;
-      rd   = 1;
-      @(negedge clk);
-      check_output(exp_data);
-      rd = 0;
+    addr=-1; data=0;
+    while ( addr ) begin
+      read(addr,data);
+      addr=addr-1;
+      data=data+1;
     end
-  endtask
-
-  // Clock generation
-  initial clk = 0;
-  always #5 clk = ~clk;
-
-  // Test sequence
-  initial begin : TEST
-    reg [AWIDTH-1:0] addr_loop;
-    reg [DWIDTH-1:0] data_loop;
-
-    // Initialize signals
-    wr = 0; rd = 0; addr = 0; rdata = 'bz;
-
-    // Write loop
-    addr_loop = -1;
-    data_loop = 0;
-    repeat (2**AWIDTH) begin
-      write(addr_loop, data_loop);
-      addr_loop = addr_loop - 1;
-      data_loop = data_loop + 1;
-    end
-
-    // Read and verify
-    addr_loop = -1;
-    data_loop = 0;
-    repeat (2**AWIDTH) begin
-      read(addr_loop, data_loop);
-      addr_loop = addr_loop - 1;
-      data_loop = data_loop + 1;
-    end
-
     $display("TEST PASSED");
     $finish;
   end
